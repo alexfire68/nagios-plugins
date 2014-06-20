@@ -15,7 +15,7 @@
 #			from a Red Hat/CentOS based system. It may not  #
 #			work correctly with a Debian based system.	#
 #									#
-#	Important: 	The $mailq_bin must correspond			#
+#	/!\ Important: 	The $mailq_bin must correspond			#
 #			to your MTA (sendmail, postfix...). Adjust	#
 #			this variable in function of your environment.	#
 #									#
@@ -44,6 +44,7 @@ my $print_help=0;
 my $print_version=0;
 my $print_licence=0;
 my $print_all=0;
+my $verbose=0;
 my $identity_file=".ssh/id_rsa";
 #--end script param
 
@@ -53,7 +54,7 @@ my $password=undef;
 my $port=22;
 #my $mailq_bin="/usr/bin/mailq"; 			#sendmail style mailq
 #my $mailq_bin="/usr/sbin/postqueue -p"; 		#postfix style mailq
-my $mailq_bin="/opt/pmx6/postfix/sbin/postqueue -p ";	#personalised mailq command
+my $mailq_bin="/opt/pmx6/postfix/sbin/postqueue -p";	#personalised mailq command
 my $command=undef;
 my $value=undef;
 #--end ssh param
@@ -74,7 +75,9 @@ GetOptions(	"a|all"		=> \$print_all,
 		"i|identity=s"	=> \$identity_file,
 		"l|licence"	=> \$print_licence,
 		"p|port=i"	=> \$port,
-		"v|version"	=> \$print_version,
+		"u|user=s"	=> \$user,
+		"v|verbose"	=> \$verbose,
+		"V|version"	=> \$print_version,
 		"w|warning=i"	=> \$warning)
 or die("Error in command line arguments\n");
 
@@ -96,12 +99,15 @@ $0
 	-i (--identity) SSH identity file (default .ssh/id_rsa)
 	-l (--licence)	Print the licence of this program
 	-p (--port)	SSH port number (default 22)
-	-v (--version)	Print the version of this program
+	-u (--user)	SSH user (default root)
+	-v (--verbose)	Add verbosity to the output (only one level)
+	-V (--version)	Print the version of this program
 	-w (--warning)	Number of messages that will cause a warning (default 90)\n"
 }
 
 sub execute_remote_command($){
 	#SSH constructor
+	if ($verbose==1){print "\t--> Connecting to $user\@$host:$port, identity file $identity_file.\n";}
 	my $ssh=Net::SSH::Perl->new($host, identity_files=>[$identity_file], port=>$port, protocol=>2, privileged=>0);
 	
 	#SSH connection
@@ -109,6 +115,7 @@ sub execute_remote_command($){
 	#$ssh->login($user, $password) or die("Can't connect to $host\n");
 	
 	#SSH command
+	if ($verbose==1){print "\t--> Executing the remote command:\n$_[0]\n\n";}
 	my($stdout, $sterr, $exit)=$ssh->cmd("$_[0]"); #send the argument passed to the function
 	return $value=$stdout;
 }
@@ -117,18 +124,21 @@ sub execute_remote_command($){
 
 #catch help message
 if ($print_help==1) {
+	if ($verbose==1){print "--> Printing help message.\n";}
 	help();
 	exit 3;
 }
 
 #catch licence message
 if ($print_licence==1) {
+	if ($verbose==1){print "--> Printing the licence.\n";}
 	print "$licence";
 	exit 3;
 }
 
 #catch version message
 if ($print_version==1) {
+	if ($verbose==1){print "--> Printing the program version.\n";}
 	print "$version\n";
 	exit 3;
 }
@@ -155,20 +165,17 @@ if ($critical<$warning){
 
 #check if print_all is defined
 if ($print_all==1){
-	$command="$mailq_bin | grep ^[^A-Z\\|0-9\\] \\
-			\| grep -v \"(\" \| grep \"\@\" \| wc -l";
+	$command="$mailq_bin | grep ^[^A-Z\\|0-9\\] | grep -v \"(\" | grep \"@\" | wc -l";
 }
 else {
-	$command="$mailq_bin | grep ^[^A-Z\\|0-9\\] \\
-			\| grep -v \"(\" \| grep \"\@\" \| cut -d\@ -f2 \| sort \\
-			\| uniq -c \| sort -nr \| awk \'\$2 == \"$domain\"\' \\
-			\| awk \'\{print \$1\}\'";
+	$command="$mailq_bin | grep ^[^A-Z\\|0-9\\] | grep -v \"(\" | grep \"@\" | cut -d@ -f2 | sort | uniq -c | sort -nr \| awk \'\$2 == \"$domain\"\' | awk \'\{print \$1\}\'";
 
 }
 
 ### end arguments testing ###
 
 #execute the remote command
+if ($verbose==1){print "\n-->Executing the subroutine execute_remote_command\n";}
 execute_remote_command($command);
 
 #if no line ise returned from command, no mails in mailq
