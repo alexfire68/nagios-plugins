@@ -167,15 +167,19 @@ elsif ($print_all==1){
 		print "Host value must be defined! (try -h for help)\n";
 		exit 3;
 	}
+	if (defined $domain){
+		printf "With -a (all) the -d (domain) must not be specified! (try -h for help)\n";
+		exit 3;
+	}
 }	
 
-#check wether -p or -i option is used
+#check whether -p or -i option is used
 unless (defined $password or defined $identity_file){
-	print "Use wether -i or -p! (try -h for help)\n";
+	print "Use whether -i (identity) or -p (password) for authentication! (try -h for help)\n";
 	exit 3;
 }	
 elsif (defined $password and defined $identity_file){
-	print "Use wether -i or -p but not both! (try -h for help)\n";
+	print "Use whether -i (identity) or -p (password) for authentication but not both! (try -h for help)\n";
 	exit 3;
 }
 
@@ -191,7 +195,6 @@ if ($print_all==1){
 }
 else {
 	$command="$mailq_bin | grep ^[^A-Z\\|0-9\\] | grep -v \"(\" | grep \"@\" | cut -d@ -f2 | sort | uniq -c | sort -nr \| awk \'\$2 == \"$domain\"\' | awk \'\{print \$1\}\'";
-
 }
 
 ### end arguments testing ###
@@ -200,7 +203,7 @@ else {
 if ($verbose==1){print "\n-->Executing the subroutine execute_remote_command\n";}
 execute_remote_command($command);
 
-#if no line ise returned from command, no mails in mailq
+#if no line is returned from command, no mails in mailq
 if (!defined $value){
 	#value not defined, should be equals to 0?
 	$value=0;
@@ -215,6 +218,7 @@ else {
 	chomp $value;
 }
 
+#print the output
 if ($value<$warning and $value<$critical){
 	print "OK - $value mails in queue | queue=$value;$warning;$critical;0;\n";
 	exit 0;
