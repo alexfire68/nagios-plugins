@@ -4,7 +4,7 @@
 # 	Name: 		check_queue.pl					#
 #	Author: 	Alexis Rapior					#
 #	Mail:		alex.rapior@gmail.com				#
-#	Date:		16 june 2014					#
+#	Date:		23 june 2014					#
 #	Version:	1.0						#
 #									#
 #	Description:	This program established an SSH connection to a	#
@@ -45,10 +45,11 @@ my $print_version=0;
 my $print_licence=0;
 my $print_all=0;
 my $verbose=0;
-my $identity_file=".ssh/id_rsa";
+my $identity_file=undef;
 #--end script param
 
 #--ssh param
+my $ssh; #ssh object
 my $user="root";
 my $password=undef;
 my $port=22;
@@ -74,7 +75,8 @@ GetOptions(	"a|all"		=> \$print_all,
 		"H|host=s" 	=> \$host,
 		"i|identity=s"	=> \$identity_file,
 		"l|licence"	=> \$print_licence,
-		"p|port=i"	=> \$port,
+		"p|password=s"	=> \$password,
+		"P|port=i"	=> \$port,
 		"u|user=s"	=> \$user,
 		"v|verbose"	=> \$verbose,
 		"V|version"	=> \$print_version,
@@ -96,9 +98,10 @@ $0
 	-d (--domain)	Domain name to monitore (required)
 	-h (--help)	Usage help
 	-H (--hostname)	Hostname to query (required)
-	-i (--identity) SSH identity file (default .ssh/id_rsa)
+	-i (--identity) SSH identity file (ex: .ssh/id_rsa)
 	-l (--licence)	Print the licence of this program
-	-p (--port)	SSH port number (default 22)
+	-p (--password)	SSH user's password (between '', ex: -p 'password')
+	-P (--port)	SSH port number (default 22)
 	-u (--user)	SSH user (default root)
 	-v (--verbose)	Add verbosity to the output (only one level)
 	-V (--version)	Print the version of this program
@@ -106,15 +109,24 @@ $0
 }
 
 sub execute_remote_command($){
-	#SSH constructor
-	if ($verbose==1){print "\t--> Connecting to $user\@$host:$port, identity file $identity_file.\n";}
-	my $ssh=Net::SSH::Perl->new($host, identity_files=>[$identity_file], port=>$port, protocol=>2, privileged=>0);
+	if (defined $password){
+		#SSH constructor
+		if ($verbose==1){print "\t--> Connecting to $user\@$host:$port.\n";}
+		$ssh=Net::SSH::Perl->new($host, port=>$port, protocol=>2, privileged=>0);
 	
-	#SSH connection
-	$ssh->login($user) or die("Can't connect to $host\n");
-	#$ssh->login($user, $password) or die("Can't connect to $host\n");
+		#SSH connection
+		$ssh->login($user, $password) or die("Can't connect to $host\n");
+	}
+	elsif (defined $identity_file){
+		#SSH constructor
+		if ($verbose==1){print "\t--> Connecting to $user\@$host:$port, identity file $identity_file.\n";}
+		$ssh=Net::SSH::Perl->new($host, identity_files=>[$identity_file], port=>$port, protocol=>2, privileged=>0);
 	
-	#SSH command
+		#SSH connection
+		$ssh->login($user) or die("Can't connect to $host\n");
+	}
+
+	#run SSH command
 	if ($verbose==1){print "\t--> Executing the remote command:\n$_[0]\n\n";}
 	my($stdout, $sterr, $exit)=$ssh->cmd("$_[0]"); #send the argument passed to the function
 	return $value=$stdout;
@@ -146,7 +158,7 @@ if ($print_version==1) {
 #check if host and domain are defined
 if ($print_all==0){
 	if (!defined $host or !defined $domain){
-		print "Host and Domain values and must be defined! (try -h for help)\n";
+		print "Host and Domain values must be defined! (try -h for help)\n";
 		exit 3;
 	}
 }
@@ -156,6 +168,16 @@ elsif ($print_all==1){
 		exit 3;
 	}
 }	
+
+#check wether -p or -i option is used
+unless (defined $password or defined $identity_file){
+	print "Use wether -i or -p! (try -h for help)\n";
+	exit 3;
+}	
+elsif (defined $password and defined $identity_file){
+	print "Use wether -i or -p but not both! (try -h for help)\n";
+	exit 3;
+}
 
 #check if warning < critical
 if ($critical<$warning){
